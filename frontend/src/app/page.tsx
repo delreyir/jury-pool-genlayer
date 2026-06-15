@@ -4,17 +4,15 @@ import { CONTRACT_ADDRESS, connectWallet, readClient, shortAddr, type WalletStat
 import { TransactionStatus } from "genlayer-js/types";
 
 type Case = { id: string; plaintiff: string; defendant: string; title: string; complaint: string; evidence: string; defense: string; defense_evidence: string; stake: string; status: number; ruling: string; };
-
-const STATUS = ["Filed", "Awaiting Judgment", "Ruled"];
-const SCOLOR = ["#b45309", "#1d4ed8", "#6d28d9"];
+const STATUS = ["FILED", "AWAITING JUDGMENT", "RULED"];
 
 export default function Home() {
   const [wallet, setWallet] = useState<WalletState>({ address: null, client: null });
   const [cases, setCases] = useState<Case[]>([]);
   const [charter, setCharter] = useState("");
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"browse" | "file">("browse");
   const [selected, setSelected] = useState<Case | null>(null);
+  const [showFile, setShowFile] = useState(false);
   const [form, setForm] = useState({ title: "", complaint: "", evidence: "", defendant: "", stake: "" });
   const [defense, setDefense] = useState({ text: "", evidence: "" });
   const [tx, setTx] = useState("");
@@ -25,140 +23,139 @@ export default function Home() {
       try { setCharter(await rc.readContract({ address: CONTRACT_ADDRESS, functionName: "get_charter", args: [] }) as string); } catch {}
       const count = Number(await rc.readContract({ address: CONTRACT_ADDRESS, functionName: "get_case_count", args: [] }));
       const out: Case[] = [];
-      for (let i = 1; i <= count; i++) {
-        const raw = await rc.readContract({ address: CONTRACT_ADDRESS, functionName: "get_case", args: [String(i)] });
-        out.push(JSON.parse(raw as string));
-      }
+      for (let i = 1; i <= count; i++) { const raw = await rc.readContract({ address: CONTRACT_ADDRESS, functionName: "get_case", args: [String(i)] }); out.push(JSON.parse(raw as string)); }
       setCases(out.reverse());
     } catch (e) { console.error(e); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  async function handleConnect() {
-    setTx("Connecting…");
-    try { const w = await connectWallet(); setWallet(w); setTx(`Connected · ${shortAddr(w.address!)}`); }
-    catch (e: any) { setTx(`⚠ ${e.message}`); }
-  }
-
+  async function handleConnect() { setTx("Connecting…"); try { const w = await connectWallet(); setWallet(w); setTx(""); } catch (e: any) { setTx(e.message); } }
   async function send(fn: string, args: any[], value?: bigint) {
-    if (!wallet.client) { setTx("⚠ Connect your wallet first"); return; }
-    setLoading(true); setTx(`Filing ${fn}…`);
+    if (!wallet.client) { setTx("Connect wallet first"); return; }
+    setLoading(true); setTx("Filing with the court…");
     try {
       const hash = await wallet.client.writeContract({ address: CONTRACT_ADDRESS, functionName: fn, args, value: value ?? BigInt(0) });
       await wallet.client.waitForTransactionReceipt({ hash, status: TransactionStatus.ACCEPTED });
-      setTx("✓ Recorded"); await load(); setSelected(null);
-    } catch (e: any) { setTx(`⚠ ${e.message}`); }
+      setTx(""); await load(); setSelected(null); setShowFile(false);
+    } catch (e: any) { setTx(e.message); }
     setLoading(false);
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0f1729", color: "#e2e1d8" }}>
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "30px 22px 80px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #8b6914", paddingBottom: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 34 }}>⚖️</span>
-            <div>
-              <h1 style={{ margin: 0, fontFamily: "'Playfair Display',Georgia,serif", fontSize: 30, color: "#d4af37", letterSpacing: 0.5 }}>JuryPool</h1>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#8a90a0", fontStyle: "italic" }}>Decentralized court · AI adjudication</p>
-            </div>
-          </div>
-          {wallet.address ? (
-            <div style={{ ...pill, color: "#d4af37", border: "1px solid #8b6914" }}>● {shortAddr(wallet.address)}</div>
-          ) : (
-            <button onClick={handleConnect} style={btn}>Connect Wallet</button>
-          )}
+    <div style={{ minHeight: "100vh", background: "#e8e4d9", color: "#1a1a1a", fontFamily: "'Courier New', Courier, monospace" }}>
+      {/* Letterhead */}
+      <div style={{ background: "#1a2332", color: "#e8e4d9", padding: "18px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px double #c9a84a" }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 3, fontFamily: "Georgia, serif" }}>⚖  JURYPOOL</div>
+          <div style={{ fontSize: 10, letterSpacing: 2, color: "#c9a84a" }}>DECENTRALIZED COURT OF AI ADJUDICATION</div>
         </div>
-
-        {charter && <div style={{ background: "#16203a", border: "1px solid #2a3a5a", borderLeft: "3px solid #d4af37", padding: 14, borderRadius: 6, marginTop: 18, fontSize: 13, color: "#b0b6c4", fontStyle: "italic" }}><b style={{ color: "#d4af37", fontStyle: "normal" }}>⚖ DAO Charter:</b> {charter}</div>}
-
-        {tx && <div style={statusBar}>{tx}</div>}
-
-        <div style={{ display: "flex", gap: 8, margin: "20px 0" }}>
-          <button onClick={() => { setTab("browse"); setSelected(null); }} style={tabBtn(tab === "browse")}>Docket</button>
-          <button onClick={() => { setTab("file"); setSelected(null); }} style={tabBtn(tab === "file")}>File a Case</button>
-        </div>
-
-        {tab === "file" && (
-          <form onSubmit={e => { e.preventDefault(); send("file_case", [form.title, form.complaint, form.evidence, form.defendant], BigInt(form.stake || "0") * BigInt(10 ** 18)); }} style={card}>
-            <label style={lbl}>Case Title</label>
-            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required style={inp} />
-            <label style={lbl}>Defendant Address</label>
-            <input placeholder="0x…" value={form.defendant} onChange={e => setForm({ ...form, defendant: e.target.value })} required style={inp} />
-            <label style={lbl}>Complaint — which rule was violated?</label>
-            <textarea value={form.complaint} onChange={e => setForm({ ...form, complaint: e.target.value })} required rows={3} style={inp} />
-            <label style={lbl}>Evidence</label>
-            <textarea value={form.evidence} onChange={e => setForm({ ...form, evidence: e.target.value })} required rows={3} style={inp} />
-            <label style={lbl}>Filing Fee (GEN)</label>
-            <input type="number" min="1" value={form.stake} onChange={e => setForm({ ...form, stake: e.target.value })} required style={inp} />
-            <button type="submit" disabled={loading} style={{ ...btn, marginTop: 14, width: "100%" }}>File Case</button>
-          </form>
-        )}
-
-        {tab === "browse" && !selected && (
-          <div style={{ display: "grid", gap: 12 }}>
-            {cases.length === 0 && <p style={{ color: "#5a6276", fontStyle: "italic" }}>The docket is empty.</p>}
-            {cases.map(c => (
-              <div key={c.id} onClick={() => setSelected(c)} style={{ ...card, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontFamily: "Georgia,serif", fontSize: 17 }}>Case №{c.id} — {c.title}</div>
-                  <div style={{ color: "#8a90a0", fontSize: 12, marginTop: 4 }}>{shortAddr(c.plaintiff)} v. {shortAddr(c.defendant)}</div>
-                </div>
-                <span style={{ ...pill, color: SCOLOR[c.status], border: `1px solid ${SCOLOR[c.status]}` }}>{STATUS[c.status]}</span>
-              </div>
-            ))}
+        {/* Credential badge connect */}
+        {wallet.address ? (
+          <div style={{ border: "2px solid #c9a84a", padding: "6px 12px", textAlign: "center", fontSize: 11 }}>
+            <div style={{ color: "#c9a84a", letterSpacing: 1 }}>★ ADMITTED ★</div>
+            <div>{shortAddr(wallet.address)}</div>
           </div>
+        ) : (
+          <button onClick={handleConnect} style={{ border: "2px solid #c9a84a", background: "transparent", color: "#c9a84a", padding: "8px 16px", cursor: "pointer", fontFamily: "Georgia, serif", letterSpacing: 2, fontSize: 12 }}>⊕ ENTER THE BAR</button>
         )}
-
-        {tab === "browse" && selected && (
-          <div style={card}>
-            <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", color: "#d4af37", cursor: "pointer", fontStyle: "italic" }}>← back to docket</button>
-            <h2 style={{ fontFamily: "Georgia,serif", marginTop: 10 }}>Case №{selected.id} — {selected.title}</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
-              <div style={{ background: "#16203a", padding: 14, borderRadius: 6, borderTop: "2px solid #b45309" }}>
-                <strong style={{ color: "#f59e0b" }}>⚑ PLAINTIFF</strong>
-                <p style={{ fontSize: 12, color: "#8a90a0" }}>{shortAddr(selected.plaintiff)}</p>
-                <p style={{ fontSize: 13 }}><b>Complaint:</b> {selected.complaint}</p>
-                <p style={{ fontSize: 13 }}><b>Evidence:</b> {selected.evidence}</p>
-              </div>
-              <div style={{ background: "#16203a", padding: 14, borderRadius: 6, borderTop: "2px solid #1d4ed8" }}>
-                <strong style={{ color: "#60a5fa" }}>⚖ DEFENDANT</strong>
-                <p style={{ fontSize: 12, color: "#8a90a0" }}>{shortAddr(selected.defendant)}</p>
-                {selected.defense ? <><p style={{ fontSize: 13 }}><b>Defense:</b> {selected.defense}</p><p style={{ fontSize: 13 }}><b>Evidence:</b> {selected.defense_evidence}</p></> : <p style={{ color: "#5a6276", fontStyle: "italic", fontSize: 13 }}>No defense filed yet</p>}
-              </div>
-            </div>
-
-            {selected.ruling && (() => { const r = JSON.parse(selected.ruling); return (
-              <div style={{ marginTop: 14, background: "#1a1530", border: "1px solid #6d28d9", padding: 16, borderRadius: 6 }}>
-                <strong style={{ color: "#a78bfa" }}>📜 RULING</strong>
-                <p style={{ marginTop: 8 }}>Verdict for: <b style={{ color: "#d4af37" }}>{r.verdict === "plaintiff" ? "Plaintiff" : "Defendant"}</b> · Violation: {r.violation_found ? "Yes" : "No"}</p>
-                <p style={{ fontStyle: "italic" }}>{r.reasoning}</p>
-                <p style={{ fontSize: 13, color: "#8a90a0" }}>Remedy: {r.remedy}</p>
-              </div>
-            ); })()}
-
-            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-              {selected.status === 0 && (
-                <>
-                  <textarea placeholder="Your defense…" value={defense.text} onChange={e => setDefense({ ...defense, text: e.target.value })} rows={3} style={inp} />
-                  <textarea placeholder="Your evidence…" value={defense.evidence} onChange={e => setDefense({ ...defense, evidence: e.target.value })} rows={2} style={inp} />
-                  <button onClick={() => send("submit_defense", [selected.id, defense.text, defense.evidence])} disabled={loading || !defense.text} style={btn}>Submit Defense</button>
-                </>
-              )}
-              {selected.status === 1 && <button onClick={() => send("judge_case", [selected.id])} disabled={loading} style={{ ...btn, background: "#6d28d9", color: "#fff", border: "none" }}>⚖ Request AI Ruling</button>}
-            </div>
-          </div>
-        )}
-
-        <footer style={{ marginTop: 50, textAlign: "center", color: "#4a5168", fontStyle: "italic", fontSize: 12 }}>Adjudicated by GenLayer AI consensus · {shortAddr(CONTRACT_ADDRESS)}</footer>
       </div>
+
+      {/* Charter as a statute notice */}
+      {charter && (
+        <div style={{ maxWidth: 820, margin: "20px auto 0", padding: "0 24px" }}>
+          <div style={{ background: "#fffef8", border: "1px solid #b0a589", borderLeft: "4px solid #1a2332", padding: "14px 18px", fontSize: 13 }}>
+            <div style={{ fontWeight: 700, letterSpacing: 1, fontSize: 11, color: "#6a6250", marginBottom: 6 }}>§ GOVERNING CHARTER</div>
+            <div style={{ lineHeight: 1.7 }}>{charter}</div>
+          </div>
+        </div>
+      )}
+
+      {tx && <p style={{ textAlign: "center", color: "#7a3b2e" }}>{tx}</p>}
+
+      {!selected && (
+        <div style={{ maxWidth: 820, margin: "0 auto", padding: "24px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #1a2332", paddingBottom: 10, marginBottom: 18 }}>
+            <h2 style={{ margin: 0, fontFamily: "Georgia, serif", letterSpacing: 1 }}>COURT DOCKET</h2>
+            <button onClick={() => setShowFile(true)} style={fileBtn}>+ FILE NEW CASE</button>
+          </div>
+
+          {cases.length === 0 && <p style={{ textAlign: "center", color: "#8a8270" }}>— no cases on the docket —</p>}
+          {/* Case files as manila folders */}
+          {cases.map(c => (
+            <div key={c.id} onClick={() => setSelected(c)} style={{ background: "#fffef8", border: "1px solid #b0a589", marginBottom: 12, cursor: "pointer", position: "relative" }}>
+              <div style={{ display: "inline-block", background: "#d4c9a8", padding: "3px 14px", fontSize: 11, fontWeight: 700, letterSpacing: 1, borderBottom: "1px solid #b0a589", borderRight: "1px solid #b0a589" }}>CASE №{String(c.id).padStart(4, "0")}</div>
+              <div style={{ padding: "10px 18px 16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontFamily: "Georgia, serif", fontSize: 18 }}>{c.title}</span>
+                  <span style={{ fontSize: 10, border: "1px solid #1a2332", padding: "3px 8px", letterSpacing: 1, transform: "rotate(-3deg)", color: c.status === 2 ? "#1a7d4f" : "#7a3b2e", borderColor: c.status === 2 ? "#1a7d4f" : "#7a3b2e" }}>{STATUS[c.status]}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "#6a6250", marginTop: 6 }}>{shortAddr(c.plaintiff)} <span style={{ fontStyle: "italic" }}>v.</span> {shortAddr(c.defendant)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Case detail as a legal document */}
+      {selected && (() => {
+        const r = selected.ruling ? JSON.parse(selected.ruling) : null;
+        return (
+          <div style={{ maxWidth: 760, margin: "0 auto", padding: "24px" }}>
+            <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", color: "#1a2332", cursor: "pointer", fontFamily: "inherit", marginBottom: 12 }}>‹ RETURN TO DOCKET</button>
+            <div style={{ background: "#fffef8", border: "1px solid #b0a589", padding: "34px 40px", boxShadow: "0 4px 14px rgba(0,0,0,0.1)" }}>
+              <div style={{ textAlign: "center", borderBottom: "2px solid #1a2332", paddingBottom: 14, marginBottom: 18 }}>
+                <div style={{ fontSize: 11, letterSpacing: 2, color: "#6a6250" }}>IN THE DECENTRALIZED COURT OF GENLAYER</div>
+                <h2 style={{ fontFamily: "Georgia, serif", margin: "8px 0", fontSize: 22 }}>{selected.title}</h2>
+                <div style={{ fontSize: 12 }}>Case №{String(selected.id).padStart(4, "0")} · {STATUS[selected.status]}</div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: 1, color: "#7a3b2e" }}>▸ PLAINTIFF ({shortAddr(selected.plaintiff)})</div>
+                <p style={{ margin: "6px 0", fontSize: 14, lineHeight: 1.7 }}><b>Complaint:</b> {selected.complaint}</p>
+                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7 }}><b>Evidence:</b> {selected.evidence}</p>
+              </div>
+              <div style={{ marginBottom: 16, borderTop: "1px dashed #b0a589", paddingTop: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: 1, color: "#1d4ed8" }}>▸ DEFENDANT ({shortAddr(selected.defendant)})</div>
+                {selected.defense ? <><p style={{ margin: "6px 0", fontSize: 14, lineHeight: 1.7 }}><b>Defense:</b> {selected.defense}</p><p style={{ margin: 0, fontSize: 14, lineHeight: 1.7 }}><b>Evidence:</b> {selected.defense_evidence}</p></> : <p style={{ fontStyle: "italic", color: "#8a8270" }}>— no defense entered —</p>}
+              </div>
+              {r && (
+                <div style={{ marginTop: 18, border: "2px solid #1a2332", padding: 18, position: "relative" }}>
+                  <div style={{ position: "absolute", top: -12, right: 20, background: "#7a3b2e", color: "#fffef8", padding: "4px 12px", fontSize: 11, letterSpacing: 2, transform: "rotate(3deg)" }}>⚖ RULED</div>
+                  <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: 1 }}>JUDGMENT FOR: {r.verdict === "plaintiff" ? "PLAINTIFF" : "DEFENDANT"} · VIOLATION: {r.violation_found ? "YES" : "NO"}</div>
+                  <p style={{ fontSize: 14, lineHeight: 1.7, fontStyle: "italic" }}>{r.reasoning}</p>
+                  <div style={{ fontSize: 13 }}>Remedy ordered: {r.remedy}</div>
+                </div>
+              )}
+              <div style={{ marginTop: 20 }}>
+                {selected.status === 0 && (<>
+                  <textarea placeholder="Enter your defense…" value={defense.text} onChange={e => setDefense({ ...defense, text: e.target.value })} rows={3} style={inp} />
+                  <textarea placeholder="Supporting evidence…" value={defense.evidence} onChange={e => setDefense({ ...defense, evidence: e.target.value })} rows={2} style={inp} />
+                  <button onClick={() => send("submit_defense", [selected.id, defense.text, defense.evidence])} disabled={loading || !defense.text} style={fileBtn}>FILE DEFENSE</button>
+                </>)}
+                {selected.status === 1 && <button onClick={() => send("judge_case", [selected.id])} disabled={loading} style={{ ...fileBtn, background: "#7a3b2e" }}>⚖ REQUEST AI RULING</button>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* file modal */}
+      {showFile && (
+        <div onClick={() => setShowFile(false)} style={{ position: "fixed", inset: 0, background: "rgba(26,35,50,0.6)", display: "grid", placeItems: "center", padding: 20 }}>
+          <form onClick={e => e.stopPropagation()} onSubmit={e => { e.preventDefault(); send("file_case", [form.title, form.complaint, form.evidence, form.defendant], BigInt(form.stake || "0") * BigInt(10 ** 18)); }} style={{ background: "#fffef8", border: "1px solid #b0a589", padding: 30, maxWidth: 520, width: "100%", maxHeight: "85vh", overflowY: "auto" }}>
+            <h2 style={{ fontFamily: "Georgia, serif", marginTop: 0, textAlign: "center" }}>File a New Case</h2>
+            <input placeholder="Case title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required style={inp} />
+            <input placeholder="Defendant address (0x…)" value={form.defendant} onChange={e => setForm({ ...form, defendant: e.target.value })} required style={inp} />
+            <textarea placeholder="Complaint — which charter rule was violated?" value={form.complaint} onChange={e => setForm({ ...form, complaint: e.target.value })} required rows={3} style={inp} />
+            <textarea placeholder="Evidence" value={form.evidence} onChange={e => setForm({ ...form, evidence: e.target.value })} required rows={3} style={inp} />
+            <input placeholder="Filing fee (GEN)" type="number" min="1" value={form.stake} onChange={e => setForm({ ...form, stake: e.target.value })} required style={inp} />
+            <button disabled={loading} style={fileBtn}>SUBMIT FILING</button>
+          </form>
+        </div>
+      )}
+      <style>{`body{margin:0}`}</style>
     </div>
   );
 }
 
-const card: React.CSSProperties = { background: "#16203a", border: "1px solid #2a3a5a", borderRadius: 8, padding: 20 };
-const inp: React.CSSProperties = { padding: 11, borderRadius: 6, border: "1px solid #2a3a5a", background: "#0f1729", color: "#e2e1d8", fontSize: 14, width: "100%", boxSizing: "border-box", marginBottom: 4, fontFamily: "Georgia,serif" };
-const lbl: React.CSSProperties = { fontSize: 12, color: "#8a90a0", marginTop: 12, display: "block", fontStyle: "italic" };
-const btn: React.CSSProperties = { padding: "11px 22px", borderRadius: 6, border: "1px solid #d4af37", background: "transparent", color: "#d4af37", fontSize: 14, cursor: "pointer", fontFamily: "Georgia,serif", letterSpacing: 0.5 };
-const pill: React.CSSProperties = { padding: "3px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600 };
-const statusBar: React.CSSProperties = { background: "#16203a", border: "1px solid #8b6914", padding: 12, borderRadius: 6, fontSize: 13, color: "#d4af37", marginTop: 16 };
-const tabBtn = (a: boolean): React.CSSProperties => ({ padding: "9px 20px", background: a ? "#d4af37" : "transparent", border: "1px solid " + (a ? "#d4af37" : "#2a3a5a"), borderRadius: 6, color: a ? "#0f1729" : "#8a90a0", cursor: "pointer", fontFamily: "Georgia,serif", fontWeight: 600 });
+const inp: React.CSSProperties = { padding: 11, border: "1px solid #b0a589", background: "#faf8f0", color: "#1a1a1a", fontSize: 14, width: "100%", boxSizing: "border-box", marginBottom: 10, fontFamily: "'Courier New', monospace" };
+const fileBtn: React.CSSProperties = { padding: "10px 18px", background: "#1a2332", color: "#e8e4d9", border: "none", cursor: "pointer", fontFamily: "Georgia, serif", letterSpacing: 1, fontSize: 13 };
