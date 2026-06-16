@@ -1,6 +1,6 @@
 # ⚖️ JuryPool
 
-**A decentralized court for DAO disputes — verdicts in minutes, not endless threads.**
+**A decentralized court for DAO disputes verdicts in minutes, not endless threads.**
 
 🔗 **Live app:** https://jurypool.pages.dev
 📜 **Contract (GenLayer Studionet):** `0x6e638a22453e43a93915BA9619801E61860296Da`
@@ -17,10 +17,10 @@ JuryPool is a decentralized court: a member files a case, the accused responds, 
 
 ## How It Works
 
-1. **Connect your wallet** (MetaMask, Rabby, or any EVM wallet — no Snap required)
-2. **File a case** — title, complaint (which charter rule was broken), evidence, the defendant's address, and a filing fee.
+1. **Connect your wallet** (MetaMask, Rabby, or any EVM wallet)
+2. **File a case** title, complaint (which charter rule was broken), evidence, the defendant's address, and a filing fee.
 3. **Defendant responds** with a defense and their own evidence.
-4. **Request the AI ruling** — validators read the charter + both sides and deliver a verdict (who wins, whether a violation occurred, reasoning, and a recommended remedy). The filing fee goes to the winning party.
+4. **Request the AI ruling** validators read the charter + both sides and deliver a verdict (who wins, whether a violation occurred, reasoning, and a recommended remedy). The filing fee goes to the winning party.
 
 The DAO's governing **charter** is stored on-chain and shown at the top of the court.
 
@@ -36,7 +36,7 @@ Interpreting a natural-language charter against submitted evidence is a judgment
 
 ## Wallet & Network
 
-Standard EVM wallet, normal signing popup — **no GenLayer Snap**. On connect it adds/switches to the **GenLayer Studio Network** (chain `61999`, RPC `https://studio.genlayer.com/api`).
+Standard EVM wallet, normal signing popup **no GenLayer Snap**. On connect it adds/switches to the **GenLayer Studio Network** (chain `61999`, RPC `https://studio.genlayer.com/api`).
 
 ---
 
