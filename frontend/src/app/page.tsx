@@ -74,6 +74,20 @@ export default function Home() {
 
       {!selected && (
         <div style={{ maxWidth: 820, margin: "0 auto", padding: "24px" }}>
+          <div style={{ background: "#fffef8", border: "1px solid #b0a589", borderLeft: "4px solid #c9a84a", padding: "16px 20px", marginBottom: 18 }}>
+            <div style={{ fontFamily: "Georgia, serif", fontSize: 18, marginBottom: 6 }}>About this Court</div>
+            <p style={{ fontSize: 13, lineHeight: 1.7, margin: 0, color: "#3a3526" }}>JuryPool is a decentralized court for DAO disputes. A member files a case against another for breaking the DAO charter; the defendant answers; then GenLayer's AI validators weigh the charter and both sides' evidence and deliver a binding verdict on-chain.</p>
+            <table style={{ width: "100%", marginTop: 12, fontSize: 13, borderCollapse: "collapse" }}>
+              <tbody>
+                {[["I.", "Enter the bar — connect your wallet."], ["II.", "File a case: title, complaint, evidence, defendant address + filing fee."], ["III.", "The defendant submits a defense with their own evidence."], ["IV.", "Request the AI ruling — verdict & remedy are recorded on-chain."]].map(([n, t], i) => (
+                  <tr key={i} style={{ borderTop: "1px dotted #c9bfa3" }}>
+                    <td style={{ padding: "6px 10px 6px 0", fontWeight: 700, color: "#7a3b2e", verticalAlign: "top", width: 30 }}>{n}</td>
+                    <td style={{ padding: "6px 0", color: "#3a3526" }}>{t}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #1a2332", paddingBottom: 10, marginBottom: 18 }}>
             <h2 style={{ margin: 0, fontFamily: "Georgia, serif", letterSpacing: 1 }}>COURT DOCKET</h2>
             <button onClick={() => setShowFile(true)} style={fileBtn}>+ FILE NEW CASE</button>
