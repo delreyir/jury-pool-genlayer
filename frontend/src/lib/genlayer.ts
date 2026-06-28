@@ -3,7 +3,7 @@ import { studionet } from "genlayer-js/chains";
 import type { GenLayerClient } from "genlayer-js/types";
 
 export const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
-  "0x6e638a22453e43a93915BA9619801E61860296Da") as `0x${string}`;
+  "0x7f6070f904c33ad27466da349a048dab5134b492") as `0x${string}`;
 
 declare global {
   interface Window { ethereum?: any; }
