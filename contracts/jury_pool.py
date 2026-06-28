@@ -96,18 +96,36 @@ Return JSON:
     "reasoning": "brief explanation referencing specific charter rules",
     "remedy": "recommended action (warning/fine/removal/none)"
 }}"""
-            response = gl.nondet.exec_prompt(prompt)
-            return json.loads(response)
+            raw = gl.nondet.exec_prompt(prompt, response_format="json")
+            if not isinstance(raw, dict):
+                raw = {}
+            verdict = str(raw.get("verdict", "defendant")).strip().lower()
+            if verdict not in ("plaintiff", "defendant"):
+                verdict = "defendant"
+            return {
+                "verdict": verdict,
+                "violation_found": bool(raw.get("violation_found", False)),
+                "reasoning": str(raw.get("reasoning", ""))[:1000],
+                "remedy": str(raw.get("remedy", "none")),
+            }
 
         def validator_fn(leader_result) -> bool:
+            # Robust consensus: agree on the normalized verdict only.
             if not isinstance(leader_result, gl.vm.Return):
                 return False
-            validator_data = leader_fn()
-            leader_data = leader_result.calldata
-            return (leader_data["verdict"] == validator_data["verdict"]
-                    and leader_data["violation_found"] == validator_data["violation_found"])
+            raw = gl.nondet.exec_prompt(prompt, response_format="json")
+            if not isinstance(raw, dict):
+                raw = {}
+            verdict = str(raw.get("verdict", "defendant")).strip().lower()
+            if verdict not in ("plaintiff", "defendant"):
+                verdict = "defendant"
+            try:
+                leader_verdict = str(leader_result.calldata["verdict"]).strip().lower()
+            except (TypeError, KeyError):
+                return False
+            return verdict == leader_verdict
 
-        result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
+        result = gl.vm.run_nondet(leader_fn, validator_fn)
 
         # Refund filing fee to winner
         stake = u256(int(case["stake"]))
