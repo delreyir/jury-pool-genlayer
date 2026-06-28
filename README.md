@@ -3,7 +3,6 @@
 **A decentralized court for DAO disputes verdicts in minutes, not endless threads.**
 
 🔗 **Live app:** https://jurypool.pages.dev
-📜 **Contract (GenLayer Studionet):** `0x6e638a22453e43a93915BA9619801E61860296Da`
 
 ---
 
